@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<body>
+<H1>Simple Canvas Tank and Airplane</H1>
+<canvas id = "myCanvas" width="800" height="400" style="border:1px solid #000000;"></canvas>
+
+<br />
+CannonControl: <input id="slider1" type="range" min="0" max="0.7" step=".01"/>
+<br />
+<br />
+ Fire_Control:  <input id="slider2" type="range" min="1" max="1.7" step=".01"/>
+<br />
+
+<script type="text/javascript" src="gl-matrix-min.js"></script>
+<script src="glmatrix_tank.js"></script>
+<script src="glmatrix_path.js"></script>
+
+<script>
+
+    function TankAPP() {
+        var theCanvas;
+        var myContext;
+        // a slider for the angle of the battery
+        var slider;
+        // create a variable for new tank object
+        var TheTank;
+        // a slider for the fire strength
+        var slider2;
+        // animation loop - clear, update, draw, schedule the next iteration
+        function draw() {
+            myContext.clearRect(0, 0, myCanvas.width, myCanvas.height);
+            TheTank.cannon = slider.value;
+            TheTank.fire = slider2.value;
+            myContext.save();
+            TheTank.update();
+            TheTank.draw();
+            myContext.restore();
+            window.requestAnimationFrame(draw);
+        }
+
+        //Initialize some arguments
+        theCanvas = document.getElementById('myCanvas');
+        myContext = theCanvas.getContext('2d');
+        slider = document.getElementById("slider1");
+        slider.value = 0.1;
+        slider2 = document.getElementById("slider2");
+        slider2.value = 1;
+
+        //create a new tank
+        TheTank = new Tank(myContext);
+        
+       //create the path for the tank
+        
+        TheTank.myPath = new TankPath(0);
+        draw();
+    }
+
+    // start the program when the window is done loading
+    window.onload = TankAPP;
+</script>
+
+</body>
+</html>

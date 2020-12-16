@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebGL 3D object drawn with indexed vertex list</title>
+    <style>
+      .column {
+          float: left;
+          width: 44%;
+          padding: 10px;
+        
+        }
+
+        .column2 {
+          float: left;
+          width: 30%;
+          padding: 10px;
+        
+        }
+
+        .row:after {
+          content: "";
+          display: table;
+          clear: both;
+        }
+
+        #foo{
+          font-size: 18px;
+        }
+    </style>
+  </head>
+
+  <body>
+    <div >
+      <div class="column" >
+        <h2> Puppy Temple</h2>
+        <script id="vertexShader" type="not-js">
+          attribute vec3 vPosition;
+          attribute vec3 vNormal;
+          attribute vec2 vTexCoord;
+          varying vec3 fPosition;
+          
+          varying vec3 over_line;
+          varying vec3 fObjPosition;
+          varying float Color_Weight;
+          
+          varying vec3 fNormal;
+          varying vec2 fTexCoord;
+          uniform mat4 uMV;
+          uniform mat4 uMVP;
+          uniform float time;
+
+          void main(void) {
+            vec3 color_weight = vec3(vPosition.x*(1.0 + 0.3*cos(time*10.0)), vPosition.y*(1.0 + 0.3*cos(time*10.0)), vPosition.z*(1.0 + 0.3*cos(time*10.0)));
+            Color_Weight = -color_weight.z*1.0;
+            float theta = time*2.0;
+            vec3 dif_p1 = vec3(cos(theta),0,sin(theta)); 
+            vec3 dif_p2 = vec3(sin(theta),0,cos(theta));
+            float diffuse1 = pow(dot(fNormal,dif_p1),2.0);
+            float diffuse2 = pow(dot(fNormal,dif_p2),2.0);
+            vec3 color1 = diffuse1 * vec3(1, .5, 0);
+            vec3 color2 = diffuse2 * vec3(0.5, 0.5, 1);
+            float myPosZ = vPosition.z - sin(time*11.0);
+            float squareZ = myPosZ*myPosZ;
+            if(squareZ< 0.001){
+              over_line = vec3(color1+color2);
+            }
+            
+            fObjPosition = vPosition;
+            gl_Position = uMVP * vec4(vPosition, 1.0);
+            fPosition = (uMV * vec4(vPosition, 1.0)).yzx; // In camera coordinates
+          
+            fNormal = vNormal;                            // In local coordinates
+            fTexCoord = vTexCoord;
+        }
+        </script>
+
+        <script id="fragmentShader" type="not-js">
+          precision highp float;
+          varying vec3 fPosition;
+          varying vec3 fNormal;
+          varying vec2 fTexCoord;
+          uniform mat4 uMV;
+          uniform mat3 uMVn;
+          uniform sampler2D texSampler1;
+          uniform sampler2D texSampler2;
+          uniform sampler2D texSampler3;
+          uniform float time;
+
+          varying vec3 fObjPosition;
+          varying vec3 over_line;
+          varying float Color_Weight;
+
+          const vec3  lightV    = vec3(1.0,0.1,1.0);
+          const float lightI    = 2.0;               // only for diffuse component
+          const float ambientC  = 0.5;
+          const float diffuseC  = 0.4;
+          const float specularC = 20.0;
+          const float specularE = 32.0;
+          const vec3  lightCol  = vec3(1.0, 0.0, 0.0);
+          const vec3  objectCol = vec3(.0,.3,1.0); // yellow-ish orange
+
+          //my ColorS
+          vec3 view_col = vec3(.4, 0.4, 1.0);
+          vec3 diffuse_col = vec3(2.2, .0, .0);
+          vec3 specular_col = vec3(0.0, 0.8, 1.4);
+          vec3 spin_light = vec3(sin(time*20.0), sin(time*20.0),0.0);
+          vec3 spot_light= vec3(1.0, .5, .3);
+        
+
+          vec3 diffuse(vec3 g_diffuse)
+          {
+            vec3 cyj = vec3(-1.4, -1.4, .2);
+            float diffuseWeight = dot(cyj, fNormal) ;
+            return over_line + diffuseWeight * g_diffuse *-Color_Weight;
+          }
+
+          vec3 specular(vec3 toLight, vec3 g_specular, vec3 camera){
+            vec3 ref = reflect(.9*toLight, fNormal);
+            float specWeight = pow(dot(normalize(camera),ref), 5.);
+            return g_specular*specWeight;
+          }
+
+          vec2 blinnPhongDir(vec3 lightDir, vec3 n, float lightInt, float Ka,
+            float Kd, float Ks, float shininess) {
+            vec3 s = normalize(lightDir);
+            vec3 v = normalize(-fPosition);
+            vec3 h = normalize(v+s);
+            float diffuse = Ka + Kd * lightInt * max(0.0, dot(n, s));
+            float spec =  Ks * pow(max(0.0, dot(n,h)), shininess);
+            return vec2(diffuse, spec);
+          }
+
+          void main(void) {
+            float texSelector=texture2D(texSampler1,fTexCoord).x;
+            vec3 texColor1=texture2D(texSampler1,fTexCoord).xyz;
+            vec3 texColor2=texture2D(texSampler2,fTexCoord).xyz;
+            vec3 texColor;
+            if(texSelector < 0.5)
+              texColor = texColor1;
+            else
+              texColor = texColor2;
+
+            vec3 n = normalize(uMVn * fNormal);
+            vec3 ColorS  = blinnPhongDir(lightV,n,lightI  ,.3,     1.0,     specularC, specularE).y * lightCol;
+            vec3 ColorAD = blinnPhongDir(lightV,n,lightI,ambientC,diffuseC,0.0,      1.0      ).x * texColor;
+            gl_FragColor = vec4(specular(spot_light, specular_col, view_col) + ColorAD+ColorS+0.06*fObjPosition,1.0);
+          }
+        </script>
+        <canvas id="mycanvas" width="600" height="600"></canvas>
+        <script type="text/javascript" src="gl-matrix-min.js"></script>
+        <script src="texture.js" id="module"></script>
+      </div>
+
+      <div class="column"></div>
+      <div>
+        <br />
+        <br />
+        <br />
+        <br />
+        <br />
+        
+        <div class="column" style="background-color:#aaa;">
+          <div class="column2" id="foo">
+            Camera Rotate View
+            <br />
+            Object Rotate View
+            <br />
+            Object Zoom View
+            <br />
+            Temple Height Control
+            <br />
+            Temple Move
+          </div>
+
+          <div class="column2" >
+            <input id="slider1" type="range" min="-100" max="100" />
+            <br />
+            <input id="slider2" type="range" min="-155" max="155" />
+            <br />
+            <input id="slider3" type="range" min="0" max="200" />
+            <br />
+            <input id="slider4" type="range" min="0" max="150" />
+            <br />
+            <input id="slider5" type="range" min="-1000" max="1000" />
+            <br />
+          </div>
+         
+        
+        </div>
+      </div>
+  </div>
+  </body>
+</html>
