@@ -1,0 +1,92 @@
+#ifdef VS 
+ 
+precision highp float;
+uniform float time;
+attribute vec3 position;
+attribute vec3 normal;
+
+uniform mat3 normalMatrix;
+uniform mat4 modelViewMatrix;
+uniform mat4 projectionMatrix;
+
+varying vec3 fNormal;
+varying vec3 fObjNormal;
+varying float Color_Weight;
+varying vec3 over_line;
+varying vec3 fObjPosition;
+varying vec3 myModel;
+
+
+float Rotate2D(vec2 vec_in)
+{
+  float vec_out;
+  vec_out= cos(.7*sin(10.0*time))* vec_in.x - sin(.7*sin(10.0*time));
+  return vec_out;
+}
+
+void main()
+{
+  fObjPosition = position;
+  fObjNormal = normal;
+  fNormal = normalize(normalMatrix * normal);
+  vec3 color_weight = vec3(position.x*(1.0 + 0.3*cos(time*10.0)), position.y*(1.0 + 0.3*cos(time*10.0)), position.z*(1.0 + 0.3*cos(time*10.0)));
+  myModel=position;
+  myModel.x = Rotate2D(myModel.xx); 
+  myModel.y = position.y*(1.0 + 0.5*cos(time*10.0));
+  myModel.z = position.z*(1.0 + 0.5*cos(time*10.0));
+  vec4  pos = modelViewMatrix * vec4(myModel, 1.0);
+  float myPosZ = position.z - sin(time*11.0);
+  float theta = time*2.0;
+  vec3 dif_p1 = vec3(cos(theta),0,sin(theta)); 
+  vec3 dif_p2 = vec3(sin(theta),0,cos(theta));
+  float diffuse1 = pow(dot(fNormal,dif_p1),2.0);
+  float diffuse2 = pow(dot(fNormal,dif_p2),2.0);
+  vec3 color1 = diffuse1 * vec3(1, .5, 0);
+  vec3 color2 = diffuse2 * vec3(0.5, 0.5, 1);
+  float squareZ = myPosZ*myPosZ;
+  if(squareZ< 0.001){
+    over_line = vec3(color1+color2);
+  }
+  Color_Weight = -color_weight.z*1.0;
+  gl_Position = projectionMatrix * pos;
+  
+
+ 
+}
+ 
+#else 
+ 
+precision highp float;
+uniform float time;
+varying vec3 fNormal;
+varying float Color_Weight;
+varying vec3 over_line;
+varying vec3 fObjPosition;
+
+vec3 diffuse_light(vec3 g_diffuse)
+{
+  vec3 cyj = vec3(-1.4, -1.4, .2);
+  float diffuseWeight = dot(cyj, fNormal) ;
+  return over_line + diffuseWeight * g_diffuse *-Color_Weight;
+}
+
+vec3 specular_light(vec3 toLight, vec3 g_specular){
+   vec3 view_col = vec3(.4, 0.4, 1.0);
+  vec3 ref = reflect(.9*toLight, fNormal);
+  float specWeight = pow(dot(normalize(view_col),ref), 5.);
+  return g_specular*specWeight;
+}
+
+void main()
+{
+  vec3 diffuse_col = vec3(2.2, .0, .0);
+  vec3 specular_col = vec3(0.0, 0.8, 1.4);
+  vec3 spin_light = vec3(sin(time*20.0), sin(time*20.0),0.0);
+  vec3 spot_light= vec3(1.0, .5, .3);;
+  vec3 all_light = diffuse_light(diffuse_col) + specular_light(spin_light, specular_col) + specular_light(spot_light, specular_col);
+  gl_FragColor = vec4(all_light + fObjPosition , 1.0);
+
+}
+
+ 
+#endif
